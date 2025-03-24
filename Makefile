@@ -9,4 +9,4 @@ webserver: webserver.c
 	$(CC) $(CFLAGS) -o webserver webserver.c
 
 clean:
-	rm -f wbserver
+	rm -f webserver

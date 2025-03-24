@@ -1,288 +1,232 @@
-/*
- Filename: wbserver.c
- Description: A simple C-based web server that responds to HTTP GET requests
-              from a browser. Serves HTML files from the local directory,
-              returns a custom 404 page if not found, and shuts down on exit.html.
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <time.h>
 
- Course: CSCE 3530 - Introduction to Computer Networks (Spring 2025)
+#define BUFFER_SIZE 4096
 
- Usage:
-   ./wbserver
-   Port: <port_number>
+/* Helper function to get the size of a file */
+long get_file_size(const char *filename) {
+    struct stat st;
+    if (stat(filename, &st) == 0) {
+        return st.st_size;
+    }
+    return -1; // File doesn't exist or can't be accessed
+}
 
- Then in browser:
-   http://cell06-cse.eng.unt.edu:<port_number>/<filename>.html
+/* Helper function to get current time in HTTP GMT format */
+void get_gmt_time(char *time_buffer, size_t buffer_size) {
+    time_t now = time(NULL);
+    struct tm *gmt = gmtime(&now);
+    // Example format: Wed, 05 Mar 2025 22:04:41 GMT
+    strftime(time_buffer, buffer_size, "%a, %d %b %Y %H:%M:%S GMT", gmt);
+}
 
- Example outputs (per assignment PDF):
-   Requested Page: index.html
-   Status: Found and serviced
+int main() {
+    int server_sock, client_sock;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t client_addr_len;
+    char port_str[16];
 
-   Requested Page: exit.html
-   Status: Found and stopping the web server! 
-   */
+    /* STEP 1: Prompt for port number (mimics assignment style) */
+    printf("Port: ");
+    fflush(stdout);
+    if (fgets(port_str, sizeof(port_str), stdin) == NULL) {
+        fprintf(stderr, "Error reading port.\n");
+        exit(EXIT_FAILURE);
+    }
+    int port = atoi(port_str);
+    if (port <= 0) {
+        fprintf(stderr, "Invalid port number.\n");
+        exit(EXIT_FAILURE);
+    }
 
+    /* STEP 2: Create TCP socket */
+    if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
 
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
- #include <unistd.h>
- #include <arpa/inet.h>
- #include <time.h>
- #include <sys/stat.h>
- #include <sys/socket.h>
- #include <fcntl.h>
- 
- #define BACKLOG 10         // How many pending connections queue will hold
- #define REQ_BUFFER_SIZE 2048
- #define RES_BUFFER_SIZE 8192
- 
- // Helper function to get current GMT time in HTTP format
- void get_http_date(char* date_str, size_t max_len) {
-     time_t rawtime;
-     struct tm* timeinfo;
-     time(&rawtime);
-     // Convert to GMT/UTC
-     timeinfo = gmtime(&rawtime);
-     // Format: e.g. "Wed, 05 Mar 2025 22:04:41 GMT"
-     strftime(date_str, max_len, "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
- }
- 
- // Helper function: read file content into a buffer, return file size
- // Return -1 if file not found or unreadable.
- ssize_t read_file_into_buffer(const char* filename, char* buffer, size_t max_len) {
-     FILE* fp = fopen(filename, "rb");
-     if (!fp) {
-         return -1; // not found
-     }
- 
-     // fseek to find file size
-     fseek(fp, 0, SEEK_END);
-     long fsize = ftell(fp);
-     rewind(fp);
- 
-     if (fsize > (long)max_len) {
-         fclose(fp);
-         return -1; // Too large for our buffer
-     }
- 
-     size_t read_bytes = fread(buffer, 1, fsize, fp);
-     fclose(fp);
-     return (ssize_t)read_bytes;
- }
- 
- // Build and send an HTTP response to the client
- void send_http_response(int client_sock, const char* header_status, 
-                         const char* filename, int is_found) {
-     char response_buffer[RES_BUFFER_SIZE];
-     char file_buffer[RES_BUFFER_SIZE];
-     memset(response_buffer, 0, sizeof(response_buffer));
-     memset(file_buffer, 0, sizeof(file_buffer));
- 
-     // If we are serving the file
-     ssize_t file_size = 0;
-     if (is_found) {
-         // Read the file content
-         file_size = read_file_into_buffer(filename, file_buffer, RES_BUFFER_SIZE - 1);
-         if (file_size < 0) {
-             // fallback: treat as not found
-             is_found = 0;
-         }
-     }
- 
-     // If not found, read from 404.html
-     if (!is_found) {
-         file_size = read_file_into_buffer("404.html", file_buffer, RES_BUFFER_SIZE - 1);
-         // Safety check (though the assignment ensures 404.html is available)
-         if (file_size < 0) {
-             file_size = 0;
-         }
-     }
- 
-     // Prepare the date header
-     char date_str[128];
-     get_http_date(date_str, sizeof(date_str));
- 
-     // Status line
-     // If file is found => 200 OK, else => 404 Not Found
-     char status_line[64];
-     if (is_found) {
-         snprintf(status_line, sizeof(status_line), "HTTP/1.1 200 OK");
-     } else {
-         snprintf(status_line, sizeof(status_line), "HTTP/1.1 404 Not Found");
-     }
- 
-     // Build the HTTP response header
-     // Content-Type is always text/html as per assignment
-     // We also add Date, Content-Length
-     // Then a blank line, then the file data
-     int header_len = snprintf(response_buffer, sizeof(response_buffer),
-         "%s\r\n"
-         "Content-Type: text/html\r\n"
-         "Date: %s\r\n"
-         "Content-Length: %ld\r\n"
-         "\r\n",  // blank line before the file content
-         status_line, date_str, (long)file_size
-     );
- 
-     // Copy the file content after the header
-     memcpy(response_buffer + header_len, file_buffer, file_size);
-     // total size of our final response
-     ssize_t total_len = header_len + file_size;
- 
-     // Send the response to the client
-     write(client_sock, response_buffer, total_len);
- }
- 
- int main() {
-     // The assignment says:
-     // ./wbserver
-     // Port: <port_number>
-     // We'll prompt the user for the port in the same style.
- 
-     char port_str[16];
-     printf("./wbserver\n");
-     printf("Port: ");
-     fflush(stdout);
-     fgets(port_str, sizeof(port_str), stdin);
-     // Remove trailing newline
-     port_str[strcspn(port_str, "\n")] = '\0';
-     if (strlen(port_str) == 0) {
-         fprintf(stderr, "No port provided.\n");
-         return 1;
-     }
- 
-     int port = atoi(port_str);
-     if (port <= 0) {
-         fprintf(stderr, "Invalid port: %s\n", port_str);
-         return 1;
-     }
- 
-     // Create a TCP socket
-     int server_sock = socket(AF_INET, SOCK_STREAM, 0);
-     if (server_sock < 0) {
-         perror("socket() failed");
-         return 1;
-     }
- 
-     // Allow reuse of address
-     int optval = 1;
-     setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
- 
-     // Bind to the port
-     struct sockaddr_in server_addr;
-     memset(&server_addr, 0, sizeof(server_addr));
-     server_addr.sin_family = AF_INET; 
-     server_addr.sin_addr.s_addr = INADDR_ANY; 
-     server_addr.sin_port = htons(port);
- 
-     if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-         perror("bind() failed");
-         close(server_sock);
-         return 1;
-     }
- 
-     // Listen
-     if (listen(server_sock, BACKLOG) < 0) {
-         perror("listen() failed");
-         close(server_sock);
-         return 1;
-     }
- 
-     // We must keep accepting connections and serving requests
-     // until user requests exit.html
-     int keep_running = 1; // to track if we should keep server running
- 
-     while (keep_running) {
-         // Accept a new connection
-         struct sockaddr_in client_addr;
-         socklen_t client_len = sizeof(client_addr);
- 
-         int client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_len);
-         if (client_sock < 0) {
-             perror("accept() failed");
-             continue; // try next
-         }
- 
-         // Read the request
-         char request_buffer[REQ_BUFFER_SIZE];
-         memset(request_buffer, 0, sizeof(request_buffer));
-         ssize_t bytes_received = recv(client_sock, request_buffer, sizeof(request_buffer) - 1, 0);
- 
-         if (bytes_received <= 0) {
-             // No data or error
-             close(client_sock);
-             continue;
-         }
- 
-         // We only handle GET method from the assignment instructions
-         // The line looks like: "GET /index.html HTTP/1.1"
-         // We'll parse out the requested filename
-         char method[8], path[256], version[16];
-         memset(method, 0, sizeof(method));
-         memset(path, 0, sizeof(path));
-         memset(version, 0, sizeof(version));
- 
-         // e.g. parse with sscanf
-         // We'll parse only the first line of the request
-         sscanf(request_buffer, "%s %s %s", method, path, version);
- 
-         // The path will have a leading '/'
-         // We'll remove that slash
-         char filename[256];
-         if (path[0] == '/') {
-             strncpy(filename, path + 1, sizeof(filename) - 1);
-         } else {
-             strncpy(filename, path, sizeof(filename) - 1);
-         }
- 
-         // If the user typed something like: GET / HTTP/1.1
-         // Then filename is "" => means index.html by default
-         if (strlen(filename) == 0) {
-             strncpy(filename, "index.html", sizeof(filename) - 1);
-         }
- 
-         // Print out the server console logs as the assignment wants
-         printf("\nRequested Page: %s\n", filename);
- 
-         // Check if it's exit.html => we shutdown after responding
-         if (strcmp(filename, "exit.html") == 0) {
-             // Serve exit.html if it exists, else it's not found
-             // Then break
-             // We'll do the code below
-         }
- 
-         // Check if file actually exists
-         int found = 0;
-         struct stat st;
-         if (stat(filename, &st) == 0) {
-             // The file is found
-             found = 1;
-         }
- 
-         // If file is exit.html => once we serve it, we stop the web server
-         if (strcmp(filename, "exit.html") == 0 && found) {
-             // Print the console log
-             printf("Status: Found and stopping the web server!\n");
-             // Serve exit.html
-             send_http_response(client_sock, "HTTP/1.1 200 OK", filename, 1);
-             close(client_sock);
- 
-             keep_running = 0;
-         } else if (found) {
-             printf("Status: Found and serviced\n");
-             // Serve the file
-             send_http_response(client_sock, "HTTP/1.1 200 OK", filename, 1);
-             close(client_sock);
-         } else {
-             // not found
-             // If the user requested test.html but we don't have it => 404
-             printf("Status: Not found and sent 404.html\n");
-             send_http_response(client_sock, "HTTP/1.1 404 Not Found", filename, 0);
-             close(client_sock);
-         }
-     }
- 
-     // Once we break out of the while, we close the server
-     close(server_sock);
-     return 0;
- }
+    /* Allow reuse of port if the server was recently closed */
+    int optval = 1;
+    setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY; // listen on all interfaces
+    server_addr.sin_port = htons(port);
+
+    /* STEP 3: Bind the socket to the specified port */
+    if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Bind failed");
+        close(server_sock);
+        exit(EXIT_FAILURE);
+    }
+
+    /* STEP 4: Listen for incoming connections */
+    if (listen(server_sock, 5) < 0) {
+        perror("Listen failed");
+        close(server_sock);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Print a message indicating the server is running */
+    // (Optional: More user-friendly or for recruiters to see a nice message)
+    printf("\nWeb server started, listening on port %d\n", port);
+
+    /* STEP 5: Accept and handle requests in a loop */
+    while (1) {
+        char request[BUFFER_SIZE];
+        char response[BUFFER_SIZE];
+        memset(request, 0, sizeof(request));
+        memset(response, 0, sizeof(response));
+
+        client_addr_len = sizeof(client_addr);
+        client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_addr_len);
+        if (client_sock < 0) {
+            perror("Accept failed");
+            close(server_sock);
+            exit(EXIT_FAILURE);
+        }
+
+        /* Read the request (blocking call) */
+        int bytes_received = recv(client_sock, request, sizeof(request) - 1, 0);
+        if (bytes_received < 0) {
+            perror("recv");
+            close(client_sock);
+            continue; // handle next connection
+        }
+        request[bytes_received] = '\0'; // null-terminate
+
+        /* STEP 6: Parse out the requested page name from the GET request */
+        // Example: "GET /index.html HTTP/1.1"
+        char *method = strtok(request, " ");   // "GET"
+        char *filename = strtok(NULL, " ");    // "/index.html"
+        if (!method || !filename) {
+            close(client_sock);
+            continue;
+        }
+
+        // skip leading '/'
+        if (filename[0] == '/')
+            filename++;
+
+        /* Print the requested page info */
+        printf("\nRequested Page: %s\n", filename);
+
+        /* If user requested exit.html, shutdown server after sending exit page */
+        if (strcmp(filename, "exit.html") == 0) {
+            // Attempt to open exit.html
+            FILE *exit_file = fopen("exit.html", "r");
+            if (!exit_file) {
+                // If no exit file, just do a simple shutdown message
+                snprintf(response, sizeof(response),
+                         "HTTP/1.1 200 OK\r\n"
+                         "Content-Type: text/html\r\n\r\n"
+                         "<html><h1>The web server is shutting down...</h1></html>");
+                send(client_sock, response, strlen(response), 0);
+            } else {
+                // Read file into buffer
+                long size = get_file_size("exit.html");
+                if (size < 0) size = 0;
+                char date_str[128];
+                get_gmt_time(date_str, sizeof(date_str));
+
+                snprintf(response, sizeof(response),
+                         "HTTP/1.1 200 OK\r\n"
+                         "Content-Type: text/html\r\n"
+                         "Date: %s\r\n"
+                         "Content-Length: %ld\r\n\r\n",
+                         date_str, size);
+                send(client_sock, response, strlen(response), 0);
+
+                // Then send the file
+                char file_buffer[BUFFER_SIZE];
+                size_t nread;
+                while ((nread = fread(file_buffer, 1, sizeof(file_buffer), exit_file)) > 0) {
+                    send(client_sock, file_buffer, nread, 0);
+                }
+                fclose(exit_file);
+            }
+
+            printf("Status: Found and stopping the web server!\n");
+            close(client_sock);
+            close(server_sock);
+            exit(0);
+        }
+
+        /* STEP 7: Check if file exists, otherwise 404 */
+        FILE *fp = fopen(filename, "r");
+        if (!fp) {
+            // 404 Not Found
+            FILE *fp404 = fopen("404.html", "r");
+            if (!fp404) {
+                // If there's no 404.html, fallback to minimal text
+                snprintf(response, sizeof(response),
+                         "HTTP/1.1 404 Not Found\r\n"
+                         "Content-Type: text/html\r\n\r\n"
+                         "<html><h1>404 Requesting page not found.</h1></html>");
+                send(client_sock, response, strlen(response), 0);
+            } else {
+                long size404 = get_file_size("404.html");
+                if (size404 < 0) size404 = 0;
+
+                char date_str[128];
+                get_gmt_time(date_str, sizeof(date_str));
+
+                snprintf(response, sizeof(response),
+                         "HTTP/1.1 404 Not Found\r\n"
+                         "Content-Type: text/html\r\n"
+                         "Date: %s\r\n"
+                         "Content-Length: %ld\r\n\r\n",
+                         date_str, size404);
+                send(client_sock, response, strlen(response), 0);
+
+                // send 404.html content
+                char file_buffer[BUFFER_SIZE];
+                size_t nread;
+                while ((nread = fread(file_buffer, 1, sizeof(file_buffer), fp404)) > 0) {
+                    send(client_sock, file_buffer, nread, 0);
+                }
+                fclose(fp404);
+            }
+            printf("Status: Not found and sent 404.html\n");
+        } else {
+            // 200 OK
+            long fsize = get_file_size(filename);
+            if (fsize < 0) fsize = 0;
+
+            char date_str[128];
+            get_gmt_time(date_str, sizeof(date_str));
+
+            snprintf(response, sizeof(response),
+                     "HTTP/1.1 200 OK\r\n"
+                     "Content-Type: text/html\r\n"
+                     "Date: %s\r\n"
+                     "Content-Length: %ld\r\n\r\n",
+                     date_str, fsize);
+            send(client_sock, response, strlen(response), 0);
+
+            // Send file contents
+            char file_buffer[BUFFER_SIZE];
+            size_t nread;
+            while ((nread = fread(file_buffer, 1, sizeof(file_buffer), fp)) > 0) {
+                send(client_sock, file_buffer, nread, 0);
+            }
+            fclose(fp);
+
+            printf("Status: Found and serviced\n");
+        }
+
+        // Done with this request
+        close(client_sock);
+    }
+
+    // Should never get here in normal flow
+    close(server_sock);
+    return 0;
+}

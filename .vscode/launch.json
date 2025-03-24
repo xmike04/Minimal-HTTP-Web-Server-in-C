@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/eric/Desktop/Minimal-HTTP-Web-Server-in-C",
+      "program": "/Users/eric/Desktop/Minimal-HTTP-Web-Server-in-C/build/Debug/outDebug"
+    }
+  ]
+}

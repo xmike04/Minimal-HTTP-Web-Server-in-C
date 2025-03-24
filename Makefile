@@ -1,4 +1,4 @@
-# Simple Makefile for wbserver
+
 
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99

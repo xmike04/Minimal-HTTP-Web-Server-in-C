@@ -3,10 +3,10 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99
 
-all: webserver
+all: wbserver
 
-webserver: webserver.c
-	$(CC) $(CFLAGS) -o webserver webserver.c
+wbserver: wbserver.c
+	$(CC) $(CFLAGS) -o wbserver wbserver.c
 
 clean:
-	rm -f webserver
+	rm -f wbserver

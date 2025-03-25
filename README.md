@@ -1,9 +1,9 @@
-Minimal HTTP Web Server in C
 
+Obj:
 A simple yet functional web server implemented in C that uses low-level system calls and the TCP/IP stack to handle basic HTTP GET requests. This project demonstrates a solid understanding of network protocols, socket programming, and server-side architecture.
 
 
-📄 Table of Contents
+# Table of Contents
 
 - [Project Overview]
 - [Features]
@@ -64,11 +64,13 @@ Then in your browser, go to:
 
 http://localhost:<PORT>/index.html
 
+or for UNT network Users:
+http://cell04-cse.eng.unt.edu:8080/
+
 Make sure `index.html` is in the same directory as the server.
 
 ## Project Structure
 
-```
 webserver/
 ├── webserver.c        # Main server source code
 ├── 404.html           # Error page if file not found

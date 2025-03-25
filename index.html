@@ -1,12 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>UNT Web Server Test</title>
+  <meta charset="UTF-8" />
+  <title>CSCE 3530 Web Server – Index</title>
+  <style>
+    /* Styling */
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f7f8fa;
+
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: #333;
+    }
+    header {
+      background: #246EB9;
+      color: #fff;
+
+      padding: 2rem;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2.2rem;
+      letter-spacing: 1px;
+    }
+    main {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    main h2 {
+      font-size: 1.6rem;
+      color: #246EB9;
+      margin-bottom: 0.5rem;
+    }
+    main p {
+      line-height: 1.6;
+    }
+    footer {
+      background: #f0f0f0;
+      text-align: center;
+
+      padding: 1rem;
+      font-size: 0.9rem;
+      color: #777;
+    }
+  </style>
 </head>
 <body>
-  <h1>Welcome to our Minimal C Web Server!</h1>
-  <p>This page is served by our custom C-based HTTP server running on <strong>CELL04-cse.eng.unt.edu</strong>.</p>
-  <p>You can try requesting other pages, like <em>test.html</em> or <em>about.html</em>, or if you want to shut down the server, request <em>exit.html</em>.</p>
+  <header>
+    <h1>Welcome to my CSCE 3530 Web Server</h1>
+  </header>
+
+  <main>
+    <h2>About This Project</h2>
+    <p>
+      This web page is served by a custom C-based HTTP server that I built
+      for <strong>CSCE 3530 – Computer Networks</strong> at UNT.
+    </p>
+    <p>
+      It responds to browser requests, delivers HTML pages, returns a custom
+      404 page when a file is missing, and cleanly shuts down if the 
+      <code>exit.html</code> page is requested.
+    </p>
+    <h2>Why this is so Cool!</h2>
+    <p>
+      <ul>
+        <li>
+          Demonstrates hands-on experience with low-level socket programming,
+          HTTP protocol basics, and concurrency fundamentals.
+        </li>
+        <li>
+          Showcases my ability to solve real-world networking tasks without
+          relying on high-level frameworks or external code.
+        </li>
+      </ul>
+    </p>
+    <p>
+      Whether you’re browsing from campus or connecting from elsewhere,
+      this lightweight server handles your requests and logs the activity
+      right to the console for easy debugging and demos.
+    </p>
+    <h2>Next Steps</h2>
+    <p>
+      Try requesting other pages like <code>test.html</code> to see the 404
+      error, or <code>exit.html</code> to gracefully shut down the server.
+    </p>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Michael Diaz – All rights reserved. - Michael Co.</p>
+  </footer>
 </body>
 </html>

@@ -8,7 +8,7 @@
 
  Usage:
    ./wbserver
- (Then user is prompted for "Port: ")
+ (Then user is prompted for "Port: 
 
 Example:
    ./wbserver

@@ -12,9 +12,8 @@ A simple yet functional web server implemented in C that uses low-level system c
 - [How to Build]
 - [How to Run]
 - [Project Structure]
-- [Demo](#demo)
 - [Future Improvements]
-- [License]
+
 
 
 ## Project Overview
@@ -58,16 +57,17 @@ gcc -o webserver webserver.c
 
 ## How to Run
 
-./webserver <PORT>
+./webserver 
+Port#: <PORT>
 
 Then in your browser, go to:
 
 http://localhost:<PORT>/index.html
 
 or for UNT network Users:
-http://cell04-cse.eng.unt.edu:8080/
+http://cell04-cse.eng.unt.edu:<PORT>/
 
-Make sure `index.html` is in the same directory as the server.
+Make sure index.html is in the same directory as the server.
 
 ## Project Structure
 
@@ -76,7 +76,7 @@ webserver/
 ├── 404.html           # Error page if file not found
 ├── index.html         # Test file served by the server
 ├── README.md          # This file
-└── Makefile           # (Optional) Build automation
+└── Makefile           #  Build automation
 
 ## Demo
 
@@ -92,6 +92,5 @@ Coming soon
 - Logging to file
 
 
-## 📚 License
 
 

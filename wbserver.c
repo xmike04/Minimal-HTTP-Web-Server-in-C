@@ -18,6 +18,8 @@ Example:
   Date:   Apr 24 2025
  */
 
+
+
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
@@ -27,6 +29,7 @@ Example:
  #include <sys/types.h>
  #include <time.h>
  #include <sys/stat.h>
+
  
  #define BUFFER_SIZE 4096
  
@@ -41,7 +44,7 @@ Example:
      strftime(date_buffer, max_len, "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
  }
  
- // Sends the file contents + a built HTTP header for status_line
+ // Sends the file contents pluss a built HTTP header for status_line
  void send_http_response(int client_sock, 
                          const char *status_line, 
                          const char *filename, 
@@ -59,7 +62,7 @@ Example:
      long file_size = ftell(fp);
      rewind(fp);
  
-     // Build the header string
+     // Builds header string
      char header[512];
      snprintf(header, sizeof(header),
          "%s\r\n"
@@ -70,7 +73,7 @@ Example:
          status_line, date_str, file_size
      );
  
-     // Send the header
+     // Sends header
      send(client_sock, header, strlen(header), 0);
  
      // Sendsfile contents
@@ -93,7 +96,7 @@ Example:
      char port_str[64];
      memset(port_str, 0, sizeof(port_str));
  
-     printf("Port: ");
+     printf("Port: "); //user chooses port
      fflush(stdout);
  
      if (fgets(port_str, sizeof(port_str), stdin) == NULL) {
@@ -214,7 +217,7 @@ Example:
          close(client_sock);
      }
  
-     // Cleanup
+     // Cleanup Cleanup
      close(server_sock);
      return 0;
  }
